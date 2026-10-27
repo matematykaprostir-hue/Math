@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Таємниці села Надиби - Квест-гра</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Comfortaa:wght@600;700&family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1e293b;
+            font-family: 'Montserrat', sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            background: #4ade80;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .ukr-font {
+            font-family: 'Comfortaa', cursive;
+        }
+        .ukr-title {
+            font-family: 'Caveat', cursive;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(8px);
+            border: 3px solid #f59e0b;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        }
+        /* Mobile Controls */
+        #joystick-container {
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.35);
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            touch-action: none;
+            display: none;
+            z-index: 20;
+        }
+        #joystick-stick {
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #fbbf24 0%, #d97706 100%);
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .action-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+            border: 3px solid #ecfdf5;
+            z-index: 20;
+        }
+        .action-btn:active {
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Canvas для гри -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Інтерфейс (HUD) -->
+    <div class="absolute top-4 left-4 right-4 flex justify-between items-center pointer-events-none z-10">
+        <!-- Соняшники -->
+        <div class="glass-panel px-4 py-2 flex items-center gap-3 pointer-events-auto">
+            <span class="text-3xl">🌻</span>
+            <div>
+                <div class="text-xs font-bold text-amber-800 uppercase tracking-wider">Соняшники</div>
+                <div id="score-text" class="text-xl font-extrabold text-amber-900">0 / 6</div>
+            </div>
+        </div>
+
+        <!-- Назва гри -->
+        <div class="glass-panel px-6 py-2 hidden sm:block text-center pointer-events-auto">
+            <h1 class="ukr-title text-2xl font-bold text-emerald-900 leading-none">Таємниці села Надиби</h1>
+            <p id="location-name" class="text-xs text-amber-800 font-semibold mt-1">Бісковицька громада, Самбірщина</p>
+        </div>
+
+        <!-- Прогрес -->
+        <div class="glass-panel px-4 py-2 flex items-center gap-3 pointer-events-auto">
+            <span class="text-3xl">📜</span>
+            <div>
+                <div class="text-xs font-bold text-amber-800 uppercase tracking-wider">Знання</div>
+                <div id="progress-text" class="text-xl font-extrabold text-emerald-700">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Мобільне керування -->
+    <div id="joystick-container">
+        <div id="joystick-stick"></div>
+    </div>
+    <button id="talk-btn" class="action-btn">💬 ДІЯ</button>
+
+    <!-- Вікно діалогу та загадок -->
+    <div id="dialog-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel max-w-lg w-full p-6 text-slate-800 relative">
+            <button id="close-modal" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-2xl font-bold">&times;</button>
+            
+            <div class="flex items-center gap-4 mb-4 border-b-2 border-amber-200 pb-3">
+                <div id="npc-avatar" class="w-16 h-16 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center text-3xl shadow">
+                    🧙‍♂️
+                </div>
+                <div>
+                    <h3 id="npc-name" class="ukr-font text-xl font-bold text-amber-900">Хранитель</h3>
+                    <p id="npc-role" class="text-xs text-slate-500 font-semibold">Локація: Надиби</p>
+                </div>
+            </div>
+
+            <div id="npc-text" class="text-sm md:text-base text-slate-700 mb-6 leading-relaxed min-h-[60px]">
+                Вітаємо у Надибах!
+            </div>
+
+            <!-- Запитання / Вікторина -->
+            <div id="quiz-box" class="space-y-3 hidden">
+                <p id="quiz-question" class="font-bold text-amber-900 text-sm md:text-base bg-amber-50 p-3 rounded-lg border border-amber-200">
+                    Питання?
+                </p>
+                <div id="quiz-options" class="grid grid-cols-1 gap-2"></div>
+            </div>
+
+            <button id="dialog-next-btn" class="w-full mt-4 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95">
+                Продовжити ➔
+            </button>
+        </div>
+    </div>
+
+    <!-- Грамота / Перемога (Для Facebook) -->
+    <div id="cert-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-40 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel max-w-xl w-full p-8 text-center bg-amber-50 border-4 border-amber-500 relative">
+            <div class="text-5xl mb-2">🏆🌻📜</div>
+            <h2 class="ukr-title text-4xl font-extrabold text-amber-900 mb-1">ПОЧЕСНА ГРАМОТА</h2>
+            <p class="text-xs uppercase tracking-widest text-amber-700 font-bold mb-4">Село Надиби • Самбірський район</p>
+
+            <div class="bg-white p-6 rounded-2xl border-2 border-dashed border-amber-300 shadow-inner mb-6">
+                <p class="text-sm text-slate-600 mb-2">Нагороджується мандрівник, який успішно розгадав усі таємниці та здобув звання:</p>
+                <h3 class="ukr-font text-2xl font-bold text-emerald-800 my-2">"Почесний Знавець та Друг села Надиби"</h3>
+                <p class="text-xs text-slate-500 italic mt-3">
+                    Ви відкрили таємниці Дністрянської залізниці 1872 року, Палацу Тхорницьких, Тюльпанового дерева, старовинної гімназії та духовних святинь Надиб!
+                </p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button id="share-fb-btn" class="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow flex items-center justify-center gap-2">
+                    <span>👍 Поділитися у Facebook</span>
+                </button>
+                <button id="restart-game-btn" class="py-3 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow">
+                    Знову 🔄
+                </button>
+            </div>
+            <p id="copy-toast" class="text-xs text-emerald-700 font-bold mt-2 opacity-0 transition-opacity">Текст для Facebook скопійовано в буфер!</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- ЗВУКОВА СИСТЕМА (Web Audio API) ---
+class SoundSystem {
+    constructor() { this.ctx = null; }
+    init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+    playStep() {
+        if (!this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(110, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.08);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+        } catch(e){}
+    }
+    playCollect() {
+        if (!this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523, this.ctx.currentTime);
+            osc.frequency.setValueAtTime(659, this.ctx.currentTime + 0.08);
+            osc.frequency.setValueAtTime(784, this.ctx.currentTime + 0.16);
+            gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.3);
+        } catch(e){}
+    }
+    playWin() {
+        if (!this.ctx) return;
+        try {
+            [440, 554, 659, 880].forEach((freq, idx) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.1);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime + idx * 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.3);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(this.ctx.currentTime + idx * 0.1);
+                osc.stop(this.ctx.currentTime + idx * 0.1 + 0.3);
+            });
+        } catch(e){}
+    }
+}
+const sounds = new SoundSystem();
+
+// --- ДАНИЙ ЛОКАЦІЙ ТА ЗАГАДОК НАДИБ ---
+const LOCATIONS = [
+    {
+        id: 'railway', name: 'Залізничний переїзд (1872 р.)', npcName: 'Машиніст Остап', avatar: '👨‍✈️', x: 200, y: 750,
+        dialog: ["Вітаю в Надибах! Залізницю біля нашого села збудували ще у 1872 році як частину знаменитої Дністрянської залізниці!", "Вона з'єднала важливі міста й дала потужний поштовх для розвитку всього нашого краю."],
+        quiz: { question: "У якому році через Надиби пройшла Дністрянська залізниця?", options: ["1872 рік", "1914 рік", "1991 рік", "1650 рік"], correct: 0, fact: "Вірно! У 1872 році відкрили Дністрянську колію!" }
+    },
+    {
+        id: 'school', name: 'Надибська Гімназія', npcName: 'Вчителька п. Марія', avatar: '👩‍🏫', x: 450, y: 220,
+        dialog: ["Добрий день! Надибська гімназія — це осередок мудрості, знань та виховання молоді.", "Наші діти бережуть українські традиції та добре вчаться!"],
+        quiz: { question: "Чим найбільше пишається Надибська школа-гімназія?", options: ["Мудрими учнями та любов'ю до рідного краю", "Космічною лабораторією", "Великим басейном", "Заняттями з фігурного катання"], correct: 0, fact: "Саме так! Гімназія виховує патріотичне та чуйне покоління!" }
+    },
+    {
+        id: 'palace', name: 'Палац Тхорницьких та Парк', npcName: 'Хранитель п. Богдан', avatar: '🏛️', x: 1100, y: 250,
+        dialog: ["Ласкаво просимо до маєтку Тхорницьких XIX століття!", "У нашому старовинному дендропарку ростуть рідкісні екзотичні дерева: Тюльпанове дерево та Плакучий клен!"],
+        quiz: { question: "Яке унікальне екзотичне дерево росте у парку Надиб?", options: ["Тюльпанове дерево", "Апельсинова пальма", "Баобаб", "Сакура з Токіо"], correct: 0, fact: "Чудово! Тюльпанове дерево в Надибах — справжня ботанічна окраса!" }
+    },
+    {
+        id: 'mill', name: 'Старовинний Млин', npcName: 'Мельник д. Іван', avatar: '🌾', x: 1250, y: 700,
+        dialog: ["Здоров був! Біля нашої річки здавен стояв млин. Надибці завжди славилися працелюбністю та запашним хлібом!", "Млин — це символ достатку та дбайливого господарювання."],
+        quiz: { question: "Що символізує старовинний млин для села?", options: ["Працелюбність, достаток та хліборобство", "Виробництво іграшок", "Морську торгівлю", "Авіацію"], correct: 0, fact: "Точно! Надибські ґазди завжди вміли виростити найкращий хліб!" }
+    },
+    {
+        id: 'center', name: 'Народний Дім та Кобзар', npcName: 'Дідусь Тарас', avatar: '👨‍🦳', x: 750, y: 500,
+        dialog: ["Слава Україні! Оце серце нашого культурного життя — Народний Дім та пам'ятник Кобзарю.", "А перша письмова згадка про Надиби була ще у 1446 році!"],
+        quiz: { question: "Яким роком датується перша письмова згадка про село Надиби?", options: ["1446 рік", "2000 рік", "1945 рік", "1000 рік"], correct: 0, fact: "Молодець! Перша згадка записана в далекому 1446 році!" }
+    },
+    {
+        id: 'church', name: 'Храм св. Дмитрія', npcName: 'Отець Миколай', avatar: '⛪', x: 750, y: 220,
+        dialog: ["Мир дому твоєму! Наш храм — це духовна фортеця, яка об'єднує громаду в молитві та милосерді.", "Тут панує злагода, а дзвони кличуть до добровірних справ."],
+        quiz: { question: "Яку головну цінність береже святиня Надиб?", options: ["Духовність, єдність громади та добро", "Сховище монет", "Музей авто", "Торговий центр"], correct: 0, fact: "Абсолютно вірно! Духовна єдність — головна сила Надиб!" }
+    }
+];
+
+let flowers = [
+    {x: 300, y: 500, collected: false}, {x: 600, y: 350, collected: false},
+    {x: 950, y: 380, collected: false}, {x: 550, y: 700, collected: false},
+    {x: 1050, y: 650, collected: false}, {x: 850, y: 750, collected: false}
+];
+
+const state = {
+    player: { x: 150, y: 750, speed: 3.5, stepFrame: 0, isMoving: false },
+    keys: {}, joystickVector: { x: 0, y: 0 },
+    visitedNPCs: new Set(), score: 0, currentNPC: null, dialogStep: 0, inDialog: false,
+    particles: [], worldWidth: 1500, worldHeight: 1000, camera: { x: 0, y: 0 }
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+    document.getElementById('joystick-container').style.display = 'block';
+    document.getElementById('talk-btn').style.display = 'flex';
+}
+
+window.addEventListener('keydown', (e) => {
+    sounds.init();
+    state.keys[e.key.toLowerCase()] = true;
+    if (e.key === ' ' || e.key === 'Enter') checkInteraction();
+});
+window.addEventListener('keyup', (e) => { state.keys[e.key.toLowerCase()] = false; });
+
+// Сенсорний джойстик
+const joystickContainer = document.getElementById('joystick-container');
+const joystickStick = document.getElementById('joystick-stick');
+let joystickActive = false, joystickCenter = { x: 0, y: 0 };
+
+joystickContainer.addEventListener('touchstart', (e) => {
+    sounds.init(); joystickActive = true;
+    const rect = joystickContainer.getBoundingClientRect();
+    joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    handleJoystick(e.touches[0]);
+});
+window.addEventListener('touchmove', (e) => { if (joystickActive) handleJoystick(e.touches[0]); });
+window.addEventListener('touchend', () => {
+    joystickActive = false; state.joystickVector = { x: 0, y: 0 };
+    joystickStick.style.transform = `translate(0px, 0px)`;
+});
+
+function handleJoystick(touch) {
+    const dx = touch.clientX - joystickCenter.x, dy = touch.clientY - joystickCenter.y;
+    const dist = Math.hypot(dx, dy), maxR = 40, angle = Math.atan2(dy, dx);
+    const clampedDist = Math.min(dist, maxR);
+    const sx = Math.cos(angle) * clampedDist, sy = Math.sin(angle) * clampedDist;
+    joystickStick.style.transform = `translate(${sx}px, ${sy}px)`;
+    state.joystickVector = { x: sx / maxR, y: sy / maxR };
+}
+
+document.getElementById('talk-btn').addEventListener('click', () => { sounds.init(); checkInteraction(); });
+
+function addParticles(x, y, color = '#f59e0b', count = 12) {
+    for (let i = 0; i < count; i++) {
+        state.particles.push({ x, y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4 - 1, size: Math.random() * 5 + 3, color, life: 1 });
+    }
+}
+
+function updateParticles() {
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.03;
+        if (p.life <= 0) state.particles.splice(i, 1);
+    }
+}
+
+function drawMap() {
+    const camX = state.camera.x, camY = state.camera.y;
+    ctx.fillStyle = '#4ade80'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Трава
+    ctx.fillStyle = '#22c55e';
+    for (let x = 60; x < state.worldWidth; x += 130) {
+        for (let y = 60; y < state.worldHeight; y += 130) {
+            ctx.beginPath(); ctx.arc(x - camX, y - camY, 12, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    // Річка
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 40; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(1400 - camX, 0 - camY);
+    ctx.bezierCurveTo(1300 - camX, 400 - camY, 1500 - camX, 600 - camY, 1100 - camX, 1000 - camY); ctx.stroke();
+
+    // Залізниця (1872)
+    ctx.strokeStyle = '#78350f'; ctx.lineWidth = 14;
+    ctx.beginPath(); ctx.moveTo(0 - camX, 780 - camY); ctx.lineTo(state.worldWidth - camX, 780 - camY); ctx.stroke();
+    for (let rx = 10; rx < state.worldWidth; rx += 25) {
+        ctx.fillStyle = '#451a03'; ctx.fillRect(rx - camX, 770 - camY, 6, 20);
+    }
+
+    // Дороги
+    ctx.strokeStyle = '#fde68a'; ctx.lineWidth = 30; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(200 - camX, 780 - camY); ctx.lineTo(450 - camX, 500 - camY);
+    ctx.lineTo(750 - camX, 500 - camY); ctx.lineTo(1100 - camX, 500 - camY); ctx.lineTo(1250 - camX, 700 - camY);
+    ctx.moveTo(750 - camX, 500 - camY); ctx.lineTo(750 - camX, 220 - camY); ctx.lineTo(450 - camX, 220 - camY);
+    ctx.moveTo(750 - camX, 220 - camY); ctx.lineTo(1100 - camX, 250 - camY); ctx.stroke();
+
+    // Соняшники
+    flowers.forEach(f => {
+        if (!f.collected) {
+            const fx = f.x - camX, fy = f.y - camY;
+            ctx.strokeStyle = '#15803d'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy + 10); ctx.stroke();
+            ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(fx, fy, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#78350f'; ctx.beginPath(); ctx.arc(fx, fy, 4, 0, Math.PI * 2); ctx.fill();
+        }
+    });
+
+    // Локації
+    LOCATIONS.forEach(loc => {
+        const lx = loc.x - camX, ly = loc.y - camY;
+        ctx.fillStyle = state.visitedNPCs.has(loc.id) ? 'rgba(34, 197, 94, 0.25)' : 'rgba(245, 158, 11, 0.35)';
+        ctx.beginPath(); ctx.arc(lx, ly, 42, 0, Math.PI * 2); ctx.fill();
+
+        ctx.font = '34px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        let icon = '🏛️';
+        if (loc.id === 'railway') icon = '🚂';
+        if (loc.id === 'school') icon = '🏫';
+        if (loc.id === 'palace') icon = '🏰';
+        if (loc.id === 'mill') icon = '⚙️';
+        if (loc.id === 'center') icon = '🎭';
+        if (loc.id === 'church') icon = '⛪';
+        ctx.fillText(icon, lx, ly - 22);
+
+        ctx.font = '26px sans-serif';
+        ctx.fillText(loc.avatar, lx, ly + 14);
+
+        ctx.font = 'bold 11px Montserrat, sans-serif';
+        const tw = ctx.measureText(loc.name).width;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillRect(lx - tw / 2 - 6, ly + 36, tw + 12, 18);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(loc.name, lx, ly + 45);
+
+        if (!state.visitedNPCs.has(loc.id)) {
+            const floatY = Math.sin(Date.now() * 0.005) * 4;
+            ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(lx, ly - 50 + floatY, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px sans-serif'; ctx.fillText('!', lx, ly - 49 + floatY);
+        }
+    });
+}
+
+function updatePlayer() {
+    if (state.inDialog) return;
+    let mx = 0, my = 0;
+    if (state.keys['arrowleft'] || state.keys['a']) mx -= 1;
+    if (state.keys['arrowright'] || state.keys['d']) mx += 1;
+    if (state.keys['arrowup'] || state.keys['w']) my -= 1;
+    if (state.keys['arrowdown'] || state.keys['s']) my += 1;
+
+    if (state.joystickVector.x !== 0 || state.joystickVector.y !== 0) {
+        mx = state.joystickVector.x; my = state.joystickVector.y;
+    }
+
+    if (mx !== 0 || my !== 0) {
+        state.player.x += mx * state.player.speed;
+        state.player.y += my * state.player.speed;
+        state.player.isMoving = true;
+        state.player.stepFrame += 0.2;
+        if (Math.floor(state.player.stepFrame) % 3 === 0) sounds.playStep();
+        state.player.x = Math.max(30, Math.min(state.worldWidth - 30, state.player.x));
+        state.player.y = Math.max(30, Math.min(state.worldHeight - 30, state.player.y));
+    } else state.player.isMoving = false;
+
+    state.camera.x = Math.max(0, Math.min(state.worldWidth - canvas.width, state.player.x - canvas.width / 2));
+    state.camera.y = Math.max(0, Math.min(state.worldHeight - canvas.height, state.player.y - canvas.height / 2));
+
+    flowers.forEach(f => {
+        if (!f.collected && Math.hypot(state.player.x - f.x, state.player.y - f.y) < 25) {
+            f.collected = true; state.score++; sounds.playCollect();
+            addParticles(f.x, f.y, '#fbbf24', 15); updateHUD();
+        }
+    });
+}
+
+function drawPlayer() {
+    const px = state.player.x - state.camera.x, py = state.player.y - state.camera.y;
+    const bob = state.player.isMoving ? Math.sin(state.player.stepFrame * 2) * 3 : 0;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)'; ctx.beginPath(); ctx.ellipse(px, py + 16, 14, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(px, py + bob, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#dc2626'; ctx.fillRect(px - 3, py - 10 + bob, 6, 18);
+    ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(px, py - 13 + bob, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fed7aa'; ctx.beginPath(); ctx.arc(px, py - 11 + bob, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(px - 3, py - 12 + bob, 1.5, 0, Math.PI * 2); ctx.arc(px + 3, py - 12 + bob, 1.5, 0, Math.PI * 2); ctx.fill();
+}
+
+function checkInteraction() {
+    if (state.inDialog) return;
+    LOCATIONS.forEach(loc => {
+        if (Math.hypot(state.player.x - loc.x, state.player.y - loc.y) < 60) openDialog(loc);
+    });
+}
+
+function openDialog(loc) {
+    state.inDialog = true; state.currentNPC = loc; state.dialogStep = 0;
+    document.getElementById('npc-avatar').innerText = loc.avatar;
+    document.getElementById('npc-name').innerText = loc.npcName;
+    document.getElementById('npc-role').innerText = `Локація: ${loc.name}`;
+    document.getElementById('dialog-modal').classList.remove('hidden');
+    showDialogStep();
+}
+
+function showDialogStep() {
+    const loc = state.currentNPC, txt = document.getElementById('npc-text');
+    const qBox = document.getElementById('quiz-box'), btn = document.getElementById('dialog-next-btn');
+
+    if (state.dialogStep < loc.dialog.length) {
+        qBox.classList.add('hidden'); txt.innerText = loc.dialog[state.dialogStep];
+        btn.classList.remove('hidden'); btn.innerText = "Далі ➔";
+    } else if (state.dialogStep === loc.dialog.length) {
+        txt.innerText = "А тепер перевіримо твоє знання історії села Надиби!";
+        qBox.classList.remove('hidden'); btn.classList.add('hidden');
+        document.getElementById('quiz-question').innerText = loc.quiz.question;
+        const opts = document.getElementById('quiz-options'); opts.innerHTML = '';
+        loc.quiz.options.forEach((opt, idx) => {
+            const b = document.createElement('button');
+            b.className = "w-full text-left p-3 rounded-xl border-2 border-amber-200 hover:border-amber-500 hover:bg-amber-100 font-semibold text-slate-800 text-sm";
+            b.innerText = `${idx + 1}. ${opt}`; b.onclick = () => handleAnswer(idx);
+            opts.appendChild(b);
+        });
+    }
+}
+
+function handleAnswer(idx) {
+    const loc = state.currentNPC, txt = document.getElementById('npc-text');
+    document.getElementById('quiz-box').classList.add('hidden');
+    const btn = document.getElementById('dialog-next-btn');
+
+    if (idx === loc.quiz.correct) {
+        sounds.playWin(); state.visitedNPCs.add(loc.id);
+        addParticles(state.player.x, state.player.y, '#10b981', 25);
+        txt.innerHTML = `<span class="text-emerald-700 font-bold">✨ Чудово!</span><br>${loc.quiz.fact}`;
+        updateHUD();
+    } else {
+        txt.innerHTML = `<span class="text-amber-700 font-bold">🤔 Майже!</span> Спробуй ще раз поміркувати!`;
+    }
+    state.dialogStep = 99; btn.classList.remove('hidden'); btn.innerText = "Завершити розмову 👍";
+}
+
+document.getElementById('dialog-next-btn').addEventListener('click', () => {
+    if (state.dialogStep < state.currentNPC.dialog.length) {
+        state.dialogStep++; showDialogStep();
+    } else {
+        document.getElementById('dialog-modal').classList.add('hidden'); state.inDialog = false;
+        if (state.visitedNPCs.size === LOCATIONS.length) setTimeout(showCertificate, 500);
+    }
+});
+
+document.getElementById('close-modal').addEventListener('click', () => {
+    document.getElementById('dialog-modal').classList.add('hidden'); state.inDialog = false;
+});
+
+function updateHUD() {
+    document.getElementById('score-text').innerText = `${state.score} / ${flowers.length}`;
+    document.getElementById('progress-text').innerText = `${Math.round((state.visitedNPCs.size / LOCATIONS.length) * 100)}%`;
+}
+
+function showCertificate() { sounds.playWin(); document.getElementById('cert-modal').classList.remove('hidden'); }
+
+document.getElementById('share-fb-btn').addEventListener('click', () => {
+    const text = "🌻 Я успішно пройшов квест 'Таємниці села Надиби' та здобув звання Почесного Знавця! Дізнався про залізницю 1872 року, Палац Тхорницьких та рідкісне Тюльпанове дерево! Запрошую всіх пізнавати красу Самбірщини! 🇺🇦✨";
+    const dummy = document.createElement("textarea"); document.body.appendChild(dummy);
+    dummy.value = text; dummy.select(); document.execCommand("copy"); document.body.removeChild(dummy);
+    const toast = document.getElementById('copy-toast'); toast.classList.remove('opacity-0');
+    setTimeout(() => toast.classList.add('opacity-0'), 3000);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank');
+});
+
+document.getElementById('restart-game-btn').addEventListener('click', () => {
+    document.getElementById('cert-modal').classList.add('hidden');
+    state.visitedNPCs.clear(); state.score = 0;
+    flowers.forEach(f => f.collected = false);
+    state.player.x = 150; state.player.y = 750; updateHUD();
+});
+
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    updatePlayer(); updateParticles();
+    drawMap(); updateParticles(); drawPlayer();
+    requestAnimationFrame(gameLoop);
+}
+
+window.onload = () => { updateHUD(); gameLoop(); };
+</script>
+</body>
+</html>
